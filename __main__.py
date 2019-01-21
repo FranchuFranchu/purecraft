@@ -1,11 +1,7 @@
 """
-Example "chat room" server
-
-This server authenticates players, then spawns them in an empty world and does
-the bare minimum to keep them in-game. Players can speak to eachother using
-chat.
-
-Supports Minecraft 1.11. Earlier versions may not work.
+Purecraft 1.0
+supports < 1.12
+by copying this program, you agree to sell your program to me haha no jk
 """
 import yaml
 from twisted.internet import reactor
