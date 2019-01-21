@@ -1,2 +1,15 @@
 motd: A python-based minecraft server
-hi: bababa
+max-players: 20
+groups:
+  Member:
+    p:
+      - core.place
+      - core.break
+      - core.
+  Owner:
+    p: # List of permissions
+      - "*"
+    u: # Users in this group
+      - FranchuFranchu
+    g: # Groups it inherits permissions and users from
+      - Member

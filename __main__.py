@@ -17,14 +17,21 @@ with open('config.yaml') as f:
     config = yaml.safe_load(f)
 import plugins as pack
 from os import listdir
+class Obj:
+    def __init__(self):
+        pass
+    #def __setattr__(self,attr,val):
+    #   exec('self.{} = val'.format(attr),{'self':self,'val':val})
 for i in listdir('./plugins'):
     if i != '__init__.py':
         impm('plugins.{}'.format(i))
-class ChatRoomProtocol(ServerProtocol):
+class PurecraftProtocol(ServerProtocol):
     def player_joined(self):
         # Call super. This switches us to "play" mode, marks the player as
         #   in-game, and does some logging.
         ServerProtocol.player_joined(self)
+        print(vars(self))
+        self.pk = self.buff_type.pack
         self.xr = self.yr = 0
         # Send "Join Game" packet
         self.send_packet("join_game",
@@ -38,7 +45,7 @@ class ChatRoomProtocol(ServerProtocol):
             self.buff_type.pack("?", False))    # reduced debug info
 
         # Send "Player Position and Look" packet
-
+        self.position = (0,255,0)
         self.send_packet("player_position_and_look",
             self.buff_type.pack("dddff?",
                 0,                         # x
@@ -52,8 +59,9 @@ class ChatRoomProtocol(ServerProtocol):
         self.send_block_change(0,253,0,2)
         # Start sending "Keep Alive" packets
         self.ticker.add_loop(20, self.update_keep_alive)
-
+        self.on_ground = True
         # Announce player joined
+        self.f = self.factory
         self.factory.send_chat(u"\u00a7e%s has joined." % self.display_name)
         def handle_chat(self, message):
             message = message.encode('utf8')
@@ -70,20 +78,26 @@ class ChatRoomProtocol(ServerProtocol):
     def packet_player_look(self,buff):
         self.xr,self.yr,_ = buff.unpack('ffb') 
     def packet_player_position(self, buff):
-        x, y, z, on_ground = buff.unpack('dddb')  # X Y Z - coordinates, on ground - boolean
+        x, y, z, self.on_ground = buff.unpack('dddb')  # X Y Z - coordinates, on ground - boolean
         #print(x,y,z,on_ground)
-        self.plugin_event("player_move", x, y, z,on_ground)
+        self.plugin_event("player_move", x, y, z,self.on_ground)
         #self.position.set(x, y, z)
         # Currently don't work
         '''for eid,player in players.iteritems():
             if player!=self:
                 player.send_spawn_player(eid,player.uuid,x,y,z,0,0)
         '''
-
+    def packet_player_position_and_look(self, buff): # not working
+        x, y, z,self.xr,self.yr, on_ground = buff.unpack('dddffb')  # X Y Z - coordinates, on ground - boolean
+        #print(x,y,z,on_ground)
+        #print(x,y,z,self.xr,self.yr) 
+        #self.plugin_event("player_move", x, y, z,on_ground)
     def packet_chat_message(self, buff):
         chat_message = buff.unpack_string()
+        print('[CHAT]',chat_message)
         self.plugin_event("rawchat",chat_message)
         if chat_message[0] == '/':
+            print(chat_message)
             #self.handle_command(chat_message[1:])  # Slice to shrink slash
             self.plugin_event("command",chat_message[1:])
         else:
@@ -106,7 +120,7 @@ class ChatRoomProtocol(ServerProtocol):
             xr = self.xr
         if yr == None:
             yr = self.yr
-        position = (x,y,z)
+        self.position = position = (x,y,z)
         #print(yr,xr)
         self.send_position_and_look(position, xr, yr, on_ground)
 
@@ -123,6 +137,8 @@ class ChatRoomProtocol(ServerProtocol):
                 yr,                         # pitch
                 0b00000),                  # flags
             self.buff_type.pack_varint(0)) # teleport id
+    def send_gamemode(self,gm):
+        self.send_packet('change_game_state',self.pk('Bf',3,float(gm)))
     def send_abilities(self, flying, fly, god, creative, fly_speed,
                        walk_speed):  # args: bool (if flying, if can fly, if no damage, if creative, (num) fly speed, walk speed)
         bitmask = 0
@@ -141,8 +157,8 @@ class ChatRoomProtocol(ServerProtocol):
             if i not in '__pycache__init__.py':
                 #print(i,s)
                 try:
-                    exec('pack.{}.f.get("{}")(p,*args,**kwargs)'.format(i,s),{"p":self,"args":args,"kwargs":kwargs,"pack":pack})
-                except TypeError:
+                    exec('pack.{}.{}(p,*args,**kwargs)'.format(i,s),{"p":self,"args":args,"kwargs":kwargs,"pack":pack})
+                except AttributeError:
                     pass
 
     def send_game(self, entity_id, gamemode, dimension, difficulty, level_type,
@@ -179,7 +195,7 @@ class ChatRoomProtocol(ServerProtocol):
 
     def send_keep_alive(self, keepalive_id):  # args: (varint data[int])
         self.send_packet("keep_alive", self.buff_type.pack_varint(keepalive_id))
-
+        
     def send_plist_head_foot(self, header, footer):  # args: str (header, footer)
         self.send_packet("player_list_header_footer",
                          self.buff_type.pack_chat(header) +
@@ -206,18 +222,33 @@ class ChatRoomProtocol(ServerProtocol):
             payload = self.buff_type.pack('Q', 0)
 
         self.send_packet("keep_alive", payload)
+        #if not self.on_ground:
+        #    self.send_position_and_look((self.position[0],self.position[1]-1,self.position[2]),self.xr,self.yr,self.on_ground)
 
-
-class ChatRoomFactory(ServerFactory):
-    protocol = ChatRoomProtocol
+class PurecraftFactory(ServerFactory):
+    protocol = PurecraftProtocol
     motd = config['motd']
     force_protocol_version = config.get('force_protocol_version')
-
+    def __init__(self):
+        ServerFactory.__init__(self)
+        self.l = Obj()
+        for i in listdir('./lib'):
+            tmp = __import__('lib.{}'.format(i))
+            exec('self.l.{} = tmp'.format(i),{'self':self,'tmp':tmp})
+            print(vars(self.l))
+    def send_chat_json(self, message_bytes, position=0): 
+        print('chatjson')
+        for p in self.players:
+            print('p')
+            p.send_packet('chat_message', p.buff_type.pack_json(message_bytes) + self.buff_type.pack('b', position))
     def send_chat(self, message):
 
         for player in self.players:
             player.send_packet("chat_message", player.buff_type.pack_chat(message) + player.buff_type.pack('B', 0))
-
+    def get_player(username):
+        for player in self.players:
+            if player.username == username:
+                return player
 
 def main(argv):
     # Parse options
@@ -228,7 +259,7 @@ def main(argv):
     args = parser.parse_args(argv)
 
     # Create factory
-    factory = ChatRoomFactory()
+    factory = PurecraftFactory()
 
     # Listen
     factory.listen(args.host, args.port)
