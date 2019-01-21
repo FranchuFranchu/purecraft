@@ -232,7 +232,7 @@ class PurecraftFactory(ServerFactory):
             tmp = __import__('lib.{}'.format(i))
             exec('self.l.{} = tmp'.format(i),{'self':self,'tmp':tmp})
             print(vars(self.l))
-    def send_chat_json(self, message_bytes, position=0): 
+    def send_chat_json(self, message_bytes, position=0):
         print('chatjson')
         for p in self.players:
             print('p')
