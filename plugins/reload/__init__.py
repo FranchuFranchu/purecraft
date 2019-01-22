@@ -1,7 +1,6 @@
 import os
 
 def command(p,c):
-	print('aa')
 	print(c)
 	if c.split(' ')[0] == 'rawreload':
 		with open('config.yaml') as f:

@@ -18,6 +18,7 @@ from os import listdir
 class Config():
     def __init__(self,config):
         self.r = config # raw config
+        print('Config.yaml: ',self.r)
         if not self.r.get('groups'):
             self.r['groups'] = {}
     def isIn(self,group,player):
@@ -42,6 +43,14 @@ class Config():
             for j in i['p']:
                 perms.append(j)
         return perms
+    def getData(self,player):
+        groups = self.listGroups(player)
+        data = {}
+        for i in groups:
+            i = self.r['groups'][i]
+            if i.get('d'):
+                data = {**data,**i['d']}
+        return data
 
     def hasPermission(self,player,perm):
         perm = perm.split('.')
@@ -107,7 +116,7 @@ class PurecraftProtocol(ServerProtocol):
         self.on_ground = True
         # Announce player joined
         self.f = self.factory
-        print(self.f.c.hasPermission(self.display_name,'sdfsdsd'))
+        #print(self.f.c.hasPermission(self.display_name,'sdfsdsd'))
         self.factory.send_chat(u"\u00a7e%s has joined." % self.display_name)
         def handle_chat(self, message):
             message = message.encode('utf8')
@@ -143,7 +152,6 @@ class PurecraftProtocol(ServerProtocol):
         print('[CHAT]',chat_message)
         self.plugin_event("rawchat",chat_message)
         if chat_message[0] == '/':
-            print(chat_message)
             #self.handle_command(chat_message[1:])  # Slice to shrink slash
             self.plugin_event("command",chat_message[1:])
         else:
@@ -283,12 +291,9 @@ class PurecraftFactory(ServerFactory):
         for i in listdir('./lib'):
             tmp = __import__('lib.{}'.format(i))
             exec('self.l.{} = tmp'.format(i),{'self':self,'tmp':tmp})
-            print(vars(self.l))
 
     def send_chat_json(self, message_bytes, position=0):
-        print('chatjson')
         for p in self.players:
-            print('p')
             p.send_packet('chat_message', p.buff_type.pack_json(message_bytes) + self.buff_type.pack('b', position))
     def send_chat(self, message):
 

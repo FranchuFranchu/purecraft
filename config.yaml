@@ -8,14 +8,14 @@ groups:
       - stdchat.format.*
       - stdchat.
     d:
-      pretext: "&7"
+      pretext: " &7"
     u: # Users in this group
       - FranchuFranchu
   Owner:
     p: # List of permissions
       - "*"
     d: # Plugin data
-      prefix: "[&4OWNER&f]"
+      prefix: "[&4OWNER&f] "
     u: # Users in this group
       - FranchuFranchu
     g: # Groups it inherits permissions and users from
