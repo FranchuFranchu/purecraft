@@ -3,6 +3,7 @@ Purecraft 1.0
 supports < 1.12
 by copying this program, you agree to sell your program to me haha no jk
 """
+from quarry.types.uuid import UUID
 import yaml
 from twisted.internet import reactor
 from quarry.net.server import ServerFactory, ServerProtocol
@@ -13,6 +14,51 @@ with open('config.yaml') as f:
     config = yaml.safe_load(f)
 import plugins as pack
 from os import listdir
+
+class Config():
+    def __init__(self,config):
+        self.r = config # raw config
+        if not self.r.get('groups'):
+            self.r['groups'] = {}
+    def isIn(self,group,player):
+        if not self.r['groups'].get(group):
+            return None, "group does not exist"
+        elif player not in self.r['groups'][group]['u']:
+            return False, "player is not in group"
+        else:
+            return True, "player is in group"
+    def listGroups(self,player):
+        # TODO: add inherited groups
+        groups = []
+        for k,v in self.r['groups'].items():
+            if player in v['u']:
+                groups.append(k)
+        return groups
+    def listPermissions(self,player):
+        groups = self.listGroups(player)
+        perms = []
+        for i in groups:
+            i = self.r['groups'][i]
+            for j in i['p']:
+                perms.append(j)
+        return perms
+
+    def hasPermission(self,player,perm):
+        perm = perm.split('.')
+        for i in self.listPermissions(player):
+            i = i.split('.')
+            matches = True
+            for j,k in zip(i,perm):
+                if j == '*':
+                    pass
+                elif j != k:
+                    matches = False
+                    break
+            if matches:
+                return True
+        return False
+
+
 class Obj:
     def __init__(self):
         pass
@@ -26,7 +72,8 @@ class PurecraftProtocol(ServerProtocol):
         # Call super. This switches us to "play" mode, marks the player as
         #   in-game, and does some logging.
         ServerProtocol.player_joined(self)
-        print(vars(self))
+        
+        self.bt = self.buff_type
         self.pk = self.buff_type.pack
         self.xr = self.yr = 0
         # Send "Join Game" packet
@@ -53,11 +100,14 @@ class PurecraftProtocol(ServerProtocol):
             self.buff_type.pack_varint(0)) # teleport id
         self.send_empty_chunk(0,0)
         self.send_block_change(0,253,0,2)
+        #self.send_mob(123,40,90,(0,254,0),0,0,0) # spawn a pig for testing purposes
+        print("Player %s has the following permissions: "%self.display_name,*self.factory.c.listPermissions(self.display_name))
         # Start sending "Keep Alive" packets
         self.ticker.add_loop(20, self.update_keep_alive)
         self.on_ground = True
         # Announce player joined
         self.f = self.factory
+        print(self.f.c.hasPermission(self.display_name,'sdfsdsd'))
         self.factory.send_chat(u"\u00a7e%s has joined." % self.display_name)
         def handle_chat(self, message):
             message = message.encode('utf8')
@@ -188,7 +238,8 @@ class PurecraftProtocol(ServerProtocol):
             self.send_packet('title', self.buff_type.pack_varint(position) + self.buff_type.pack_json(message))
         else:
             self.send_packet('title', self.buff_type.pack_varint(position) + self.buff_type.pack_chat(message))
-
+    def send_mob(self,idd,uuid,type_,pos,yaw,pitch,headpitch):
+        self.send_packet('spawn_mob', self.bt.pack_varint(idd)+self.bt.pack_uuid(UUID.random())+self.bt.pack_varint(type_)+self.bt.pack('dddfffhhh',*pos,yaw,pitch,headpitch,0,0,0),self.bt.pack_array('',[]))
     def send_keep_alive(self, keepalive_id):  # args: (varint data[int])
         self.send_packet("keep_alive", self.buff_type.pack_varint(keepalive_id))
         
@@ -228,10 +279,12 @@ class PurecraftFactory(ServerFactory):
     def __init__(self):
         ServerFactory.__init__(self)
         self.l = Obj()
+        self.c = Config(config)
         for i in listdir('./lib'):
             tmp = __import__('lib.{}'.format(i))
             exec('self.l.{} = tmp'.format(i),{'self':self,'tmp':tmp})
             print(vars(self.l))
+
     def send_chat_json(self, message_bytes, position=0):
         print('chatjson')
         for p in self.players:
