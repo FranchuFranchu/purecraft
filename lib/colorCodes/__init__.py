@@ -38,7 +38,6 @@ def to_json(string):
 				dl['clickEvent']['action'] = 'suggest_command'
 			elif i == 'p':
 				dl['clickEvent']['action'] = 'change_page'
-			print('Augh!')
 			nextIsClick = False
 			isCurrentlyInsertingText = True
 
@@ -50,13 +49,11 @@ def to_json(string):
 			i = i.lower()
 			if i == "i":
 				if isCurrentlyInsertingText:
-					print('compData')
 					dl['insertion'] = compData
 					compData = ''
 					isCurrentlyInsertingText = False
 					
 				else:
-					print('das')
 					isCurrentlyInsertingText = True
 			elif i == 'g': #click events
 				if isCurrentlyInsertingText:	
@@ -68,13 +65,14 @@ def to_json(string):
 					elif dl['clickEvent']['action'] == 'open_url':
 						if not(compData.startswith('http://') or compData.startswith('https://')):
 							compData = 'http://'+compData
-					print('cddasdsa',compData)
 					dl['clickEvent']['value'] = compData
 					compData = ''
-				print('cddasdsa',compData)
 				nextIsClick = not nextIsClick
 				isCurrentlyInsertingText = False
 			elif i == 'h':
+				if isCurrentlyInsertingText:	
+					dl['hoverEvent']['value'] = compData
+					compData = ''
 				nextIsHover = not nextIsHover
 				isCurrentlyInsertingText = False
 			else:
@@ -129,7 +127,6 @@ def to_json(string):
 			nextIsColorCode = False
 
 		elif isCurrentlyInsertingText:
-			print(compData)
 			compData+=i
 		else:
 			curr += i
@@ -157,6 +154,5 @@ def to_json(string):
 				del l[l.index(i)]['color']
 			if i['text'] == '':
 				del l[l.index(i)]
-	print('l',l)
-	print('JSON',l)
+	print('Message converted to JSON',l)
 	return l
