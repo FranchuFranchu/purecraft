@@ -18,5 +18,5 @@ groups:
       prefix: "[&4OWNER&f] "
     u: # Users in this group
       - FranchuFranchu
-    g: # Groups it inherits permissions and users from
+    g: # Groups it inherits permissions and users from (not working yet)
       - Member

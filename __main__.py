@@ -142,6 +142,12 @@ class PurecraftProtocol(ServerProtocol):
             if player!=self:
                 player.send_spawn_player(eid,player.uuid,x,y,z,0,0)
         '''
+    def packet_player_block_placement(self,buff):
+        x,y,z = buff.unpack_position()
+        position_in_block = buff.unpack_varint() 
+        using_main_hand = buff.unpack_varint() == 0
+        crx,cry,crz = buff.unpack('fff')
+        self.plugin_event('r_block_placed',x,y,z,position_in_block,using_main_hand,crx,cry,crz)
     def packet_player_position_and_look(self, buff): # not working
         x, y, z,self.xr,self.yr, on_ground = buff.unpack('dddffb')  # X Y Z - coordinates, on ground - boolean
         #print(x,y,z,on_ground)
@@ -288,6 +294,7 @@ class PurecraftFactory(ServerFactory):
         ServerFactory.__init__(self)
         self.l = Obj()
         self.c = Config(config)
+        self.dfa = self.do_for_all
         for i in listdir('./lib'):
             tmp = __import__('lib.{}'.format(i))
             exec('self.l.{} = tmp'.format(i),{'self':self,'tmp':tmp})
@@ -299,10 +306,14 @@ class PurecraftFactory(ServerFactory):
 
         for player in self.players:
             player.send_packet("chat_message", player.buff_type.pack_chat(message) + player.buff_type.pack('B', 0))
-    def get_player(username):
+    def get_player(self,username):
         for player in self.players:
             if player.username == username:
                 return player
+    def do_for_all(self,fname,args,target_players=None):
+        for player in self.players:
+            exec('p.{}(*args)'.format(fname),{'args':args,'p':player})
+
 
 def main(argv):
     # Parse options
