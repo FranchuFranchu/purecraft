@@ -116,6 +116,7 @@ class PurecraftProtocol(ServerProtocol):
         self.on_ground = True
         # Announce player joined
         self.f = self.factory
+        self.inv = {}
         #print(self.f.c.hasPermission(self.display_name,'sdfsdsd'))
         self.factory.send_chat(u"\u00a7e%s has joined." % self.display_name)
         def handle_chat(self, message):
@@ -142,12 +143,30 @@ class PurecraftProtocol(ServerProtocol):
             if player!=self:
                 player.send_spawn_player(eid,player.uuid,x,y,z,0,0)
         '''
+    def packet_creative_inventory_action(self,buff):
+        place = buff.unpack('h')
+        slot = buff.unpack_slot()
+        self.inv[place] = slot
+        self.plugin_event('creative_inventory_action',place,slot)
     def packet_player_block_placement(self,buff):
         x,y,z = buff.unpack_position()
-        position_in_block = buff.unpack_varint() 
+        face = buff.unpack_varint() 
         using_main_hand = buff.unpack_varint() == 0
         crx,cry,crz = buff.unpack('fff')
-        self.plugin_event('r_block_placed',x,y,z,position_in_block,using_main_hand,crx,cry,crz)
+        self.plugin_event('r_block_placed',x,y,z,face,using_main_hand,crx,cry,crz)
+        neg = 1
+        i = face
+        if i%2 == 0:
+            neg = -1
+        if i < 2:
+            y = y + neg
+        elif i < 4:
+            z = z + neg
+        elif i < 6:
+            x = x + neg
+        if self.inv.get(36) not in (None,{}):
+            self.f.dfa('send_block_change',(x,y,z,self.inv[36]['item']))
+
     def packet_player_position_and_look(self, buff): # not working
         x, y, z,self.xr,self.yr, on_ground = buff.unpack('dddffb')  # X Y Z - coordinates, on ground - boolean
         #print(x,y,z,on_ground)
