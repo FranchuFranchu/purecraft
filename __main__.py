@@ -3,53 +3,46 @@ Purecraft 1.0
 supports < 1.12
 by copying this program, you agree to sell your program to me haha no jk
 """
-from quarry.types.uuid import UUID
-import yaml
-from twisted.internet import reactor
-from quarry.net.server import ServerFactory, ServerProtocol
 from importlib import import_module as impm
 from os import listdir
+
+import plugins as pack
+import yaml
+from quarry.net.server import ServerFactory, ServerProtocol
+from quarry.types.uuid import UUID
+from twisted.internet import reactor
+
 with open('config.yaml') as f:
     # use safe_load instead load
     config = yaml.safe_load(f)
-import plugins as pack
-from os import listdir
 
 class Config():
     def __init__(self,config):
         self.r = config # raw config
         print('Config.yaml: ',self.r)
-        if not self.r.get('groups'):
-            self.r['groups'] = {}
+        if not self.r.get('groups'): self.r['groups'] = {}
     def isIn(self,group,player):
-        if not self.r['groups'].get(group):
-            return None, "group does not exist"
-        elif player not in self.r['groups'][group]['u']:
-            return False, "player is not in group"
-        else:
-            return True, "player is in group"
+        if not self.r['groups'].get(group): return None, "group does not exist"
+        elif player not in self.r['groups'][group]['u']: return False, "player is not in group"
+        else: return True, "player is in group"
     def listGroups(self,player):
         # TODO: add inherited groups
         groups = []
-        for k,v in self.r['groups'].items():
-            if player in v['u']:
-                groups.append(k)
+        for k,v in self.r['groups'].items(): if player in v['u']: groups.append(k)
         return groups
     def listPermissions(self,player):
         groups = self.listGroups(player)
         perms = []
         for i in groups:
             i = self.r['groups'][i]
-            for j in i['p']:
-                perms.append(j)
+            for j in i['p']: perms.append(j)
         return perms
     def getData(self,player):
         groups = self.listGroups(player)
         data = {}
         for i in groups:
             i = self.r['groups'][i]
-            if i.get('d'):
-                data = {**data,**i['d']}
+            if i.get('d'): data = {**data,**i['d']}
         return data
 
     def hasPermission(self,player,perm):
@@ -58,13 +51,11 @@ class Config():
             i = i.split('.')
             matches = True
             for j,k in zip(i,perm):
-                if j == '*':
-                    pass
+                if j == '*': pass
                 elif j != k:
                     matches = False
                     break
-            if matches:
-                return True
+            if matches: return True
         return False
 
 
@@ -76,6 +67,7 @@ class Obj:
 for i in listdir('./plugins'):
     if i != '__init__.py':
         impm('plugins.{}'.format(i))
+
 class PurecraftProtocol(ServerProtocol):
     def player_joined(self):
         # Call super. This switches us to "play" mode, marks the player as
@@ -176,12 +168,8 @@ class PurecraftProtocol(ServerProtocol):
         chat_message = buff.unpack_string()
         print('[CHAT]',chat_message)
         self.plugin_event("rawchat",chat_message)
-        if chat_message[0] == '/':
-            #self.handle_command(chat_message[1:])  # Slice to shrink slash
-            self.plugin_event("command",chat_message[1:])
-        else:
-            #self.handle_chat(chat_message)
-            self.plugin_event("chat",chat_message)
+        if chat_message[0] == '/': self.plugin_event("command",chat_message[1:]) #self.handle_command(chat_message[1:])  # Slice to shrink slash
+        else: self.plugin_event("chat",chat_message) #self.handle_chat(chat_message)
 
     '''def send_spawn_player(self,entity_id,player_uuid,x,y,z,yaw,pitch):
         buff = self.buff_type.pack_varint(entity_id)+self.buff_type.pack_uuid(player_uuid)+self.buff_type.pack("dddbbBdb",x,y,z,yaw,pitch,0,7,health)
@@ -195,16 +183,13 @@ class PurecraftProtocol(ServerProtocol):
         self.send_packet("change_game_state", self.buff_type.pack('Bf', reason, state))
 
     def set_position(self, x, y, z, xr=None, yr=None, on_ground=False):
-        if xr == None:
-            xr = self.xr
-        if yr == None:
-            yr = self.yr
+        if xr == None: xr = self.xr
+        if yr == None: yr = self.yr
         self.position = position = (x,y,z)
         #print(yr,xr)
         self.send_position_and_look(position, xr, yr, on_ground)
 
-    def send_position_and_look(self, position, xr, yr,
-                               on_ground):  # args: num (x, y, z, x rotation, y rotation, on-ground[bool])
+    def send_position_and_look(self, position, xr, yr, on_ground):  # args: num (x, y, z, x rotation, y rotation, on-ground[bool])
         x, y, z = position
         #print(position)
         self.send_packet("player_position_and_look",
@@ -353,4 +338,3 @@ def main(argv):
 if __name__ == "__main__":
     import sys
     main(sys.argv[1:])
-
