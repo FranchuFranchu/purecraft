@@ -109,7 +109,9 @@ class PurecraftProtocol(ServerProtocol):
             self.buff_type.pack_varint(0)) # teleport id
         self.send_empty_chunk(0,0)
         self.send_block_change(0,253,0,2)
-        #self.send_mob(123,40,90,(0,254,0),0,0,0) # spawn a pig for testing purposes
+
+        self.send_packet('entity',self.bt.pack_varint(123))
+        self.send_mob(123,40,90,(0,254,0),0,0,0) # spawn a pig for testing purposes
         print("Player %s has the following permissions: "%self.display_name,*self.factory.c.listPermissions(self.display_name))
         # Start sending "Keep Alive" packets
         self.ticker.add_loop(20, self.update_keep_alive)
@@ -272,7 +274,12 @@ class PurecraftProtocol(ServerProtocol):
         else:
             self.send_packet('title', self.buff_type.pack_varint(position) + self.buff_type.pack_chat(message))
     def send_mob(self,idd,uuid,type_,pos,yaw,pitch,headpitch):
-        self.send_packet('spawn_mob', self.bt.pack_varint(idd)+self.bt.pack_uuid(UUID.random())+self.bt.pack_varint(type_)+self.bt.pack('dddfffhhh',*pos,yaw,pitch,headpitch,0,0,0),self.bt.pack_array('',[]))
+        self.send_packet('spawn_mob', 
+            self.bt.pack_varint(idd)+
+            self.bt.pack_uuid(UUID.random())+
+            self.bt.pack_varint(type_)+
+            self.bt.pack('dddfffhhh',*pos,yaw,pitch,headpitch,0,0,0)+
+            self.bt.pack_entity_metadata({}))
     def send_keep_alive(self, keepalive_id):  # args: (varint data[int])
         self.send_packet("keep_alive", self.buff_type.pack_varint(keepalive_id))
         
