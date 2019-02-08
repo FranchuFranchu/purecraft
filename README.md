@@ -26,6 +26,8 @@ python __main__.py
 
 ## Notes
 
+If you want to run it on Windows, install the Microsoft Visual C++ 14.0 before running.
+
 This uses some code from [Puremine](https://github.com/Yardanico/puremine/ "Thank you :)") and [Quarry's examples](https://github.com/barneygale/quarry/blob/master/examples/server_chat_room.py "Thank you for the awesome module!").
 
 [Please](https://duckduckgo.com/?q=magic+solutions+to+my+problems "pleeease i do really need some help i am panicking with this aaaa this is so hard i am a python noob :(") contribute! :)
