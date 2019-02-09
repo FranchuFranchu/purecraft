@@ -3,6 +3,7 @@ Purecraft 1.0
 supports < 1.12
 by copying this program, you agree to sell your program to me haha no jk
 """
+from twisted.internet import task
 from quarry.types.uuid import UUID
 import yaml
 from twisted.internet import reactor
@@ -77,6 +78,8 @@ for i in listdir('./plugins'):
     if i != '__init__.py':
         impm('plugins.{}'.format(i))
 class PurecraftProtocol(ServerProtocol):
+    def gravity(self):
+        self.send_packet("entity_velocity",self.bt.pack_varint(self.eid)+self.pk('hhh',0,-1343,0))
     def player_joined(self):
         # Call super. This switches us to "play" mode, marks the player as
         #   in-game, and does some logging.
@@ -84,11 +87,13 @@ class PurecraftProtocol(ServerProtocol):
         
         self.bt = self.buff_type
         self.pk = self.buff_type.pack
+        self.send_chat('hi')
         self.xr = self.yr = 0
+        self.eid = 0 
         # Send "Join Game" packet
         self.send_packet("join_game",
             self.buff_type.pack("iBiBB",
-                0,                              # entity id
+                self.eid,                              # entity id
                 1,                              # game mode
                 0,                              # dimension
                 0,                              # max players
@@ -107,9 +112,14 @@ class PurecraftProtocol(ServerProtocol):
                 90,                         # pitch
                 0b00000),                  # flags
             self.buff_type.pack_varint(0)) # teleport id
-        self.send_empty_chunk(0,0)
-        self.send_block_change(0,253,0,2)
+        loop = task.LoopingCall(self.gravity)
 
+        # Start looping every 50 ms
+        loopDeferred = loop.start(0.05)
+        for i in range(-3,3):
+            for j in range(-3,3):
+                self.send_empty_chunk(i,j)
+        self.send_block_change(0,253,0,2)
         self.send_packet('entity',self.bt.pack_varint(123))
         self.send_mob(123,40,90,(0,254,0),0,0,0) # spawn a pig for testing purposes
         print("Player %s has the following permissions: "%self.display_name,*self.factory.c.listPermissions(self.display_name))
@@ -307,7 +317,7 @@ class PurecraftProtocol(ServerProtocol):
         # 1.12.2
         else:
             payload = self.buff_type.pack('Q', 0)
-
+        
         self.send_packet("keep_alive", payload)
         #if not self.on_ground:
         #    self.send_position_and_look((self.position[0],self.position[1]-1,self.position[2]),self.xr,self.yr,self.on_ground)
