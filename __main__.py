@@ -113,6 +113,7 @@ class PurecraftProtocol(ServerProtocol):
         # Announce player joined
         self.f = self.factory
         self.inv = {}
+        self.flying = False
         #print(self.f.c.hasPermission(self.display_name,'sdfsdsd'))
         self.factory.send_chat(u"\u00a7e%s has joined." % self.display_name)
         
@@ -223,6 +224,10 @@ class PurecraftProtocol(ServerProtocol):
         self.send_packet("spawn_position",
                          self.buff_type.pack('q', position.get_pos())  # get_pos() is long long type
                          )
+    def packet_player_abilities(self,buff):
+        b = buff.unpack_byte()
+        buff.discard()
+        self.flying = int.from_bytes(b, byteorder='big') % 0x2 == 1
     def plugin_event(self,s,*args,**kwargs):
         for i in self.factory.pack.__all__:
             if i not in '__pycache__init__.py':
