@@ -27,6 +27,9 @@ for i in listdir('./plugins'):
     if i != '__init__.py':
         impm('plugins.{}'.format(i))
 class PurecraftProtocol(ServerProtocol):
+    def packet_steer_vehicle(self,buff):
+        buff.discard()
+        print('steer vehicle')
     def packet_status_request(self, buff):
         protocol_version = self.factory.force_protocol_version
         if protocol_version is None:
@@ -110,6 +113,7 @@ class PurecraftProtocol(ServerProtocol):
         print("Player %s has the following permissions: "%self.display_name,*self.factory.c.listPermissions(self.display_name))
         # Start sending "Keep Alive" packets
         self.ticker.add_loop(20, self.update_keep_alive)
+        print(vars(self.ticker))
         # Announce player joined
         self.f = self.factory
         self.inv = {}
@@ -225,21 +229,20 @@ class PurecraftProtocol(ServerProtocol):
                          self.buff_type.pack('q', position.get_pos())  # get_pos() is long long type
                          )
     def packet_player_abilities(self,buff):
-        b = buff.unpack_byte()
+        b = buff.unpack('b')
         buff.discard()
-        self.flying = int.from_bytes(b, byteorder='big') % 0x2 == 1
+        self.flying = b % 0x2 == 1
     def plugin_event(self,s,*args,**kwargs):
         for i in self.factory.pack.__all__:
             if i not in '__pycache__init__.py':
                 #print(i,s)
                 try:
                     if s != 'tick': 
-                        print(s,i)
-                    #print(vars(eval('pack.{}'.format(i))))
-                    exec('p.f.pack.{}.{}(p,*args,**kwargs)'.format(i,s),{"p":self,"args":args,"kwargs":kwargs,"pack":self.f.pack})
+                        pass#print(s,i)
+                    exec('pack.{}.{}(p,*args,**kwargs)'.format(i,s),{"pack":self.factory.pack,"args":args,"kwargs":kwargs,"p":self})
                 except AttributeError:
                     if s != 'tick':
-                        print(s,i)
+                        pass#print(s,i)
                     pass
 
     def send_game(self, entity_id, gamemode, dimension, difficulty, level_type,
