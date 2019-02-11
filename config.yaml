@@ -14,6 +14,7 @@ groups:
   Owner:
     p: # List of permissions
       - "*"
+      - mc.kick
     d: # Plugin data
       prefix: "[&4OWNER&f] "
     u: # Users in this group

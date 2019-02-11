@@ -3,6 +3,7 @@ Purecraft 1.0
 supports < 1.12
 by copying this program, you agree to sell your program to me haha no jk
 """
+from classes import Config
 from twisted.internet import task
 from quarry.types.uuid import UUID
 import yaml
@@ -16,58 +17,6 @@ with open('config.yaml') as f:
 import plugins as pack
 from os import listdir
 
-class Config():
-    def __init__(self,config):
-        self.r = config # raw config
-        print('Config.yaml: ',self.r)
-        if not self.r.get('groups'):
-            self.r['groups'] = {}
-    def isIn(self,group,player):
-        if not self.r['groups'].get(group):
-            return None, "group does not exist"
-        elif player not in self.r['groups'][group]['u']:
-            return False, "player is not in group"
-        else:
-            return True, "player is in group"
-    def listGroups(self,player):
-        # TODO: add inherited groups
-        groups = []
-        for k,v in self.r['groups'].items():
-            if player in v['u']:
-                groups.append(k)
-        return groups
-    def listPermissions(self,player):
-        groups = self.listGroups(player)
-        perms = []
-        for i in groups:
-            i = self.r['groups'][i]
-            for j in i['p']:
-                perms.append(j)
-        return perms
-    def getData(self,player):
-        groups = self.listGroups(player)
-        data = {}
-        for i in groups:
-            i = self.r['groups'][i]
-            if i.get('d'):
-                data = {**data,**i['d']}
-        return data
-
-    def hasPermission(self,player,perm):
-        perm = perm.split('.')
-        for i in self.listPermissions(player):
-            i = i.split('.')
-            matches = True
-            for j,k in zip(i,perm):
-                if j == '*':
-                    pass
-                elif j != k:
-                    matches = False
-                    break
-            if matches:
-                return True
-        return False
-
 
 class Obj:
     def __init__(self):
@@ -78,8 +27,35 @@ for i in listdir('./plugins'):
     if i != '__init__.py':
         impm('plugins.{}'.format(i))
 class PurecraftProtocol(ServerProtocol):
-    def gravity(self):
-        self.send_packet("entity_velocity",self.bt.pack_varint(self.eid)+self.pk('hhh',0,-1343,0))
+    def packet_status_request(self, buff):
+        protocol_version = self.factory.force_protocol_version
+        if protocol_version is None:
+            protocol_version = self.protocol_version
+
+        d = {
+            "description": {
+                "text":     self.factory.motd
+            },
+            "players": {
+                "online":   len(self.factory.players),
+                "max":      self.factory.max_players
+            },
+            "version": {
+                "name":    "Purecraft < 1.12.2", #self.factory.minecraft_versions.get(protocol_version,"???"),
+                "protocol": protocol_version
+            }
+        }
+        print(self.factory.minecraft_versions.get(
+                                protocol_version,
+                                "???"),)
+        if self.factory.favicon is not None:
+            with open(self.factory.favicon, "r") as fd:
+                print()
+                d["favicon"] = "data:image/png;base64," + fd.read()
+
+        # send status response
+        self.send_packet("status_response", self.buff_type.pack_json(d))
+
     def player_joined(self):
         # Call super. This switches us to "play" mode, marks the player as
         #   in-game, and does some logging.
@@ -90,6 +66,7 @@ class PurecraftProtocol(ServerProtocol):
         self.send_chat('hi')
         self.xr = self.yr = 0
         self.eid = 0 
+        self.on_ground = False
         # Send "Join Game" packet
         self.send_packet("join_game",
             self.buff_type.pack("iBiBB",
@@ -106,37 +83,39 @@ class PurecraftProtocol(ServerProtocol):
         self.send_packet("player_position_and_look",
             self.buff_type.pack("dddff?",
                 0,                         # x
-                255,                       # y
+                101,                       # y
                 0,                         # z
                 0,                         # yaw
                 90,                         # pitch
                 0b00000),                  # flags
             self.buff_type.pack_varint(0)) # teleport id
-        loop = task.LoopingCall(self.gravity)
 
-        # Start looping every 50 ms
+        self.plugin_event('player_joined') # tell plugins that the player joined
+        # start ticking 
+        loop = task.LoopingCall(self.plugin_event,'tick')
         loopDeferred = loop.start(0.05)
+        # send 7x7 chunks  around the player
         for i in range(-3,3):
             for j in range(-3,3):
                 self.send_empty_chunk(i,j)
-        self.send_block_change(0,253,0,2)
+
+        # make a small parkour
+        self.send_block_change(0,100,0,1)
+        self.send_block_change(2,101,0,2)
+        self.send_block_change(5,101,-1,3)
+        self.send_block_change(7,102,0,4)
+        self.send_block_change(6,103,2,5)
         self.send_packet('entity',self.bt.pack_varint(123))
-        self.send_mob(123,40,90,(0,254,0),0,0,0) # spawn a pig for testing purposes
+        self.send_mob(123,40,90,(0,101,0),0,0,0) # spawn a pig for testing purposes
         print("Player %s has the following permissions: "%self.display_name,*self.factory.c.listPermissions(self.display_name))
         # Start sending "Keep Alive" packets
         self.ticker.add_loop(20, self.update_keep_alive)
-        self.on_ground = True
         # Announce player joined
         self.f = self.factory
         self.inv = {}
         #print(self.f.c.hasPermission(self.display_name,'sdfsdsd'))
         self.factory.send_chat(u"\u00a7e%s has joined." % self.display_name)
-        def handle_chat(self, message):
-            message = message.encode('utf8')
-            self.plugin_event("player_chat", message)
-            message = "<{0}> {1}".format(self.username, message)
-            self.logger.info(message)  # Write chat message in server console
-            self.send_chat(message)  # send chat message to all players on server
+        
 
     def handle_command(self, command_string):
         self.logger.info("Player " + self.username + " issued server command: " + command_string)
@@ -191,6 +170,7 @@ class PurecraftProtocol(ServerProtocol):
         if chat_message[0] == '/':
             #self.handle_command(chat_message[1:])  # Slice to shrink slash
             self.plugin_event("command",chat_message[1:])
+
         else:
             #self.handle_chat(chat_message)
             self.plugin_event("chat",chat_message)
@@ -244,12 +224,17 @@ class PurecraftProtocol(ServerProtocol):
                          self.buff_type.pack('q', position.get_pos())  # get_pos() is long long type
                          )
     def plugin_event(self,s,*args,**kwargs):
-        for i in pack.__all__:
+        for i in self.factory.pack.__all__:
             if i not in '__pycache__init__.py':
                 #print(i,s)
                 try:
-                    exec('pack.{}.{}(p,*args,**kwargs)'.format(i,s),{"p":self,"args":args,"kwargs":kwargs,"pack":pack})
+                    if s != 'tick': 
+                        print(s,i)
+                    #print(vars(eval('pack.{}'.format(i))))
+                    exec('p.f.pack.{}.{}(p,*args,**kwargs)'.format(i,s),{"p":self,"args":args,"kwargs":kwargs,"pack":self.f.pack})
                 except AttributeError:
+                    if s != 'tick':
+                        print(s,i)
                     pass
 
     def send_game(self, entity_id, gamemode, dimension, difficulty, level_type,
@@ -271,9 +256,10 @@ class PurecraftProtocol(ServerProtocol):
 
     def send_chat(self, message_bytes, position=0):  # args: (message[str], position[int])
         self.send_packet('chat_message',
-                         self.buff_type.pack_chat(message_bytes) +
-                         self.buff_type.pack('b', position)
+                         self.buff_type.pack_json([message_bytes]) +  
+                         self.buff_type.pack('B', position)
                          )
+        print(message_bytes)
 
     def send_chat_json(self, message_bytes, position=0):  # args: (message[dict], tp[int])
         self.send_packet('chat_message', self.buff_type.pack_json(message_bytes) + self.buff_type.pack('b', position))
@@ -299,6 +285,7 @@ class PurecraftProtocol(ServerProtocol):
                          self.buff_type.pack_chat(footer))
 
     def send_block_change(self, x, y, z, block_id):  # args: int (x, y, z, block id)
+        print(block_id<<4)
         self.send_packet("block_change", self.buff_type.pack('q', ((x & 0x3FFFFFF) << 38) | ((y & 0xFFF) << 26) | (
             z & 0x3FFFFFF)) + self.buff_type.pack_varint((block_id << 4) | 0))
     def player_left(self):
@@ -324,15 +311,18 @@ class PurecraftProtocol(ServerProtocol):
 
 class PurecraftFactory(ServerFactory):
     protocol = PurecraftProtocol
+    favicon = 'favicon_base64.txt'
     motd = config['motd']
     force_protocol_version = config.get('force_protocol_version')
     def __init__(self):
         ServerFactory.__init__(self)
+        self.pack = pack
         self.l = Obj()
         self.c = Config(config)
         self.dfa = self.do_for_all
+        lib = __import__('lib')
         for i in listdir('./lib'):
-            tmp = __import__('lib.{}'.format(i))
+            tmp = __import__('lib.{}'.format(i),lib)
             exec('self.l.{} = tmp'.format(i),{'self':self,'tmp':tmp})
 
     def send_chat_json(self, message_bytes, position=0):
