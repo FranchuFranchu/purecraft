@@ -103,6 +103,7 @@ class PurecraftProtocol(ServerProtocol):
                 self.send_empty_chunk(i,j)
 
         # make a small parkour
+        self.x,self.y,self.z = (0,101,0)
         self.send_block_change(0,100,0,1)
         self.send_block_change(2,101,0,2)
         self.send_block_change(5,101,-1,3)
@@ -128,11 +129,18 @@ class PurecraftProtocol(ServerProtocol):
         command, arguments = command_list[0], command_string.split(" ")[1:]  # Get command and arguments
         self.plugin_event("player_command", command, arguments)
     def packet_player_look(self,buff):
-        self.xr,self.yr,_ = buff.unpack('ffb') 
+        self.xr,self.yr,self.on_ground = buff.unpack('ffb') 
     def packet_player_position(self, buff):
+        self.pon_ground = True
+
         x, y, z, self.on_ground = buff.unpack('dddb')  # X Y Z - coordinates, on ground - boolean
+        print(self.y-y)
+        self.x,self.y,self.z = (x,y,z)
+
+
         #print(x,y,z,on_ground)
         self.plugin_event("player_move", x, y, z,self.on_ground)
+
         #self.position.set(x, y, z)
         # Currently don't work
         '''for eid,player in players.iteritems():
