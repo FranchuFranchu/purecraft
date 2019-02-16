@@ -5,8 +5,8 @@
 # r"([0-9|:]+) \t\n\t(.+)\n\(((?:[a-z]|[0-9]|:|_)+)\)\n" = JS regular expression i used to parse https://minecraft-ids.grahamedgecombe.com/
 
 entities_ids = {
-	"Player":0
-	"minecraft:player":
+	"Player":0,
+	"minecraft:player":0,
 	"Dropped Item":1,
 	"minecraft:item":1,
 	"Experience Orb":2,
@@ -39,8 +39,8 @@ entities_ids = {
 	"minecraft:eye_of_ender_signal":15,
 	"Splash Potion":16,
 	"minecraft:potion":16,
-	"Bottle o' Enchanting":17
-	"minecraft:xp_bottle":17
+	"Bottle o' Enchanting":17,
+	"minecraft:xp_bottle":17,
 	"Item Frame":18,
 	"minecraft:item_frame":18,
 	"Wither Skull":19,
