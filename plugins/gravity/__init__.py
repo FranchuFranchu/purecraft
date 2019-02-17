@@ -11,6 +11,7 @@ def grav(p):
 		)
 def tick(p):
 	if p.on_ground or p.flying == False :
-		p.ticker.add_delay(20,lambda: grav(p))
+		grav(p)
+		#p.ticker.add_delay(20,lambda: grav(p))
 	else:
 		p.falling_time = 0
