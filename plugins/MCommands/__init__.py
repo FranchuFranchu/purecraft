@@ -1,9 +1,21 @@
-
+from copy import copy
 def command(player, command):
 	args = command.split(' ') # getting arguments
 	command = args[0] # getting command
 	args.remove(args[0])
-
+	print(command)
+	if command == 'matchesselector':
+		print('assdgf')
+		player.logger.log(4,'sss')
+		# copy everything since selectorParser is a read-only lib
+		m = copy(player.f.l.selectorParser.selectorParser.parse(
+			args[0],
+			copy(copy(player.world).entities[player.eid]),
+			copy(player.world)))
+		m = [m] if type(m) != list else m
+		print(m)
+		for i in m: # list entities matching the selector
+			player.send_chat(str(i))
 	if command == 'gamemode' or command == 'gm':
 		# checking if no arguments
 		if args == []: return # it needs to send a message to sender about error
@@ -18,16 +30,16 @@ def command(player, command):
 		player.set_position(x, y, z) # setting player position
 	elif command == 'spawn':
 		player.send_mob(123, 40, 90, (0, 254, 0), 0, 0, 0)
-	elif c[0] == 'kick':
-		print(c)	
-		if player.c.hasPermission(player.username,'mc.kick'):
+	elif command == 'kick':
+		print(command)	
+		if player.command.hasPermission(player.username,'mc.kick'):
 			player.send_chat('You have no permission to run that command')
-			k = player.f.get_player(c[1])
+			k = player.f.get_player(args[0])
 
 			if k == None:
-				player.send_chat('Player %s not found' % (c[1]))
+				player.send_chat('Player %s not found' % (args[0]))
 			else:
-				player.send_chat('Player %s has been kicked: %s' % (c[1],c[2]))
+				player.send_chat('Player %s has been kicked: %s' % (args[0],args[1]))
 		else:
 			player.send_chat('You have no permission to run that command')
 		player.send_chat('You have no permission to run that command')

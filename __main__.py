@@ -3,6 +3,7 @@ Purecraft 1.0
 supports < 1.12
 by copying this program, you agree to sell your program to me haha no jk
 """
+import traceback as tb
 from classes import Config,World
 from twisted.internet import task
 from quarry.types.uuid import UUID
@@ -53,10 +54,12 @@ class PurecraftProtocol(ServerProtocol):
                                 protocol_version,
                                 "???"),)
         if self.factory.favicon is not None:
-            with open(self.factory.favicon, "r") as fd:
+            with open(curdir+self.factory.favicon, "r") as fd:
                 print()
-                d["favicon"] = "data:image/png;base64," + fd.read()
-
+                x = fd.read()
+                print(len(x))
+                d = {**d,**eval('{"favicon":"data:image/png;base64,{data"}'.replace('{data',x).replace('\n', ''))}
+                
         # send status response
         self.send_packet("status_response", self.buff_type.pack_json(d))
 
@@ -64,7 +67,9 @@ class PurecraftProtocol(ServerProtocol):
         # Call super. This switches us to "play" mode, marks the player as
         #   in-game, and does some logging.
         ServerProtocol.player_joined(self)
-        
+        self.isProtocol = True
+        self.logger.setLevel(self.factory.level)
+        self.username_ = self.display_name
         self.bt = self.buff_type
         self.pk = self.buff_type.pack
         self.send_chat('hi')
@@ -121,11 +126,6 @@ class PurecraftProtocol(ServerProtocol):
         self.factory.send_chat(u"\u00a7e%s has joined." % self.display_name)
         
 
-    def handle_command(self, command_string):
-        self.logger.info("Player " + self.username + " issued server command: " + command_string)
-        command_list = command_string.split(" ")  # Command list - e.g ['/login','123123123','123123123']
-        command, arguments = command_list[0], command_string.split(" ")[1:]  # Get command and arguments
-        self.plugin_event("player_command", command, arguments)
     def packet_player_look(self,buff):
         self.xr,self.yr,on_ground = buff.unpack('ffb') 
     def packet_player_position(self, buff):
@@ -178,7 +178,12 @@ class PurecraftProtocol(ServerProtocol):
         self.plugin_event("rawchat",chat_message)
         if chat_message[0] == '/':
             #self.handle_command(chat_message[1:])  # Slice to shrink slash
-            self.plugin_event("command",chat_message[1:])
+            try:
+                self.plugin_event("command",chat_message[1:])
+            except Exception as e:
+                self.logger.log(4,'{} made a command, raising an error:'.format(self.username_))
+                self.logger.log(4,repr(e))
+                self.send_chat(tb.format_exc())
 
         else:
             #self.handle_chat(chat_message)
@@ -364,11 +369,12 @@ def main(argv):
     parser = argparse.ArgumentParser()
     parser.add_argument("-a", "--host", default="", help="address to listen on")
     parser.add_argument("-p", "--port", default=25565, type=int, help="port to listen on")
+    parser.add_argument("-d", "--debug", default=5, type=int, help="debug level, lower is verboser")
     args = parser.parse_args(argv)
 
     # Create factory
     factory = PurecraftFactory()
-
+    factory.level = args.debug
     # Listen
     factory.listen(args.host, args.port)
     reactor.run()

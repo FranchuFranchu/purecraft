@@ -8,10 +8,8 @@ def player_move(p,x=0,y=0,z=0,xr=None,yr=None,on_ground=None,player=None):
 	if xr != None:
 		p.xr,p.yr = xr,yr
 	if on_ground:
-		print('og')
 		p.set_position(x,y,z)
 	else: # if the player is not on ground
-		print(p.flying,p.y-y,p.prev_on_ground)
 		if not p.flying: # and is not flying
 			if p.y-y < 0 and p.y-y > -1 and p.prev_on_ground:  # and before this packet was sent he was 0 to 1 blocks higher
 				p.falling_time = int(JUMP_TIME)

@@ -31,7 +31,7 @@ entities_ids = {
 	"minecraft:snowball":11,
 	"Ghast Fireball":12,
 	"minecraft:fireball":12,
-	"Blaze Fireball":13,
+	"Blaze Fireball":13,		
 	"minecraft:small_fireball":13,
 	"Ender Pearl":14,
 	"minecraft:ender_pearl":14,

@@ -57,10 +57,14 @@ class Config():
 		return False
 
 class Entity():
+	isEntity = True
 	def __init__(self,typ,pos=(0,0,0),metadata={},protocol=None):
+		self.s = {'x':pos[0],'y':pos[0],'z':pos[0]}
 		self.type = typ
 		self.pos = pos
 		self.protocol = protocol
+	def __str__(self):
+		return '{0} at {1},{2},{3}'.format(self.type,*self.pos)
 
 class World():
 	def __init__(self,players=[],typ=0 ): #type = -1 :nether 0:overworld 1:end;  
