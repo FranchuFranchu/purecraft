@@ -1,5 +1,6 @@
 from data import *
 from twisted.internet import reactor
+import re
 def getKey(d,k): # get value from a dictionary, if KeyError then return the key
 	try:
 		return d[k]
@@ -14,12 +15,15 @@ class commandFunction:
 		self.fmt = fmt
 		self.mfmt = []
 		print(fmt)
-		for i in fmt.split(' '):
-			if i.startswith('{') and i.endsswith('}'):
-				self.mfmt.append(('{',i[0:]))
-			elif i.startswith('(') and i.endsswith(')'):
+		print(re.split(r"\s+(?=[^()]*(?:(\(|\<|\[|\{)|$))", fmt))
+		for i in re.split(r"\s+(?=[^()]*(?:(\(|\<|\[|\{)|$))", fmt):
+			if i == None:
+				continue
+			if i.startswith('<') and i.endswith('>'):
+				self.mfmt.append(('<',i[0:]))
+			elif i.startswith('(') and i.endswith(')'):
 				self.mfmt.append(('(',i[0:]))
-			elif i.startswith('[') and i.endsswith(']'):
+			elif i.startswith('[') and i.endswith(']'):
 				self.mfmt.append(('[',i[0:]))
 			else:
 				self.mfmt.append(('',i[0:]))
@@ -27,8 +31,24 @@ class commandFunction:
 	def __call__(self,player,s):
 		if not self.factory:
 			self.factory = player.factory
-		else:
-			self.func(player,*s.split(' '))
+		d = {}
+		reg = re.split(r"\s+(?=[^()]*(?:(\(|\<|\[|\{)|$))",s)
+		 
+		
+		lre = 0
+		nreg = []
+		for i in reg:
+			if i != None:
+				nreg.append(i)
+		reg = nreg
+		for i,j in zip(self.mfmt,reg):
+			if i[0] == '<':
+				d[i[1][1:-1]] = j
+				lre+=1
+		if lre < len(list(filter(lambda x: x[0] == '<',self.mfmt))):
+			player.send_chat('§cCommand §b%s§c expects §b%s§c mandatory arguments, got §b%s§c' % (' '.join([i[1] for i in filter(lambda x: x[0] == '' ,self.mfmt)]), len(list(filter(lambda x: x[0] == '<',self.mfmt))),lre))
+			return
+		self.func(player,**d)
 
 def commandDecorator(fmt,perm = '',help_ = ''):
 	def wrapper(f):

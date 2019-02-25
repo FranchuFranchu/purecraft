@@ -275,23 +275,24 @@ class PurecraftProtocol(ServerProtocol):
                   dbg):  # args: int (entity id, gamemode, dimension, difficulty, max players, level type[str], reduced debug info[bool])
         max_players = 25  # This is no longer used in Minecraft protocol
         self.send_packet("join_game",
-                         self.buff_type.pack('iBbBB',
+                          self.buff_type.pack('iBbBB',
                                              entity_id, gamemode, dimension, difficulty,
-                                             max_players) + self.buff_type.pack_string(level_type) +
-                         self.buff_type.pack('?', dbg)
+                                             max_players) 
+                         + self.buff_type.pack_string(level_type) 
+                         + self.buff_type.pack('?', dbg)
                          )
 
     def send_chat_all(self, message_bytes, position=0):  # Send chat message for all players
         for player in players.values():
             player.send_packet('chat_message',
-                               player.buff_type.pack_chat(message_bytes) +
-                               player.buff_type.pack('b', position)
+                                 player.buff_type.pack_chat(message_bytes)
+                               + player.buff_type.pack('b', position)
                                )
 
     def send_chat(self, message_bytes, position=0):  # args: (message[str], position[int])
         self.send_packet('chat_message',
-                         self.buff_type.pack_json([message_bytes]) +  
-                         self.buff_type.pack('B', position)
+                          self.buff_type.pack_json([message_bytes]) 
+                        + self.buff_type.pack('B', position)
                          )
         print(message_bytes)
 
@@ -305,11 +306,11 @@ class PurecraftProtocol(ServerProtocol):
             self.send_packet('title', self.buff_type.pack_varint(position) + self.buff_type.pack_chat(message))
     def send_mob(self,eid,type_,pos=(0,0,0),yaw=0,pitch=0,headpitch=0,uuid=UUID.random()):
         self.send_packet('spawn_mob', 
-            self.bt.pack_varint(eid)+
-            self.bt.pack_uuid(uuid)+
-            self.bt.pack_varint(type_)+
-            self.bt.pack('dddfffhhh',*pos,yaw,pitch,headpitch,0,0,0)+
-            self.bt.pack_entity_metadata({}))
+              self.bt.pack_varint(eid)
+            + self.bt.pack_uuid(uuid)
+            + self.bt.pack_varint(type_)
+            + self.bt.pack('dddfffhhh',*pos,yaw,pitch,headpitch,0,0,0)
+            + self.bt.pack_entity_metadata({}))
     def send_keep_alive(self, keepalive_id):  # args: (varint data[int])
         self.send_packet("keep_alive", self.buff_type.pack_varint(keepalive_id))
         
