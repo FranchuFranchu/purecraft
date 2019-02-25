@@ -1,9 +1,48 @@
 from data import *
+from twisted.internet import reactor
 def getKey(d,k): # get value from a dictionary, if KeyError then return the key
 	try:
 		return d[k]
 	except KeyError:
 		return k
+commandSystem = {}
+class commandFunction:
+	def __init__(self,func,fmt,perm='',help_=''):
+		self.factory = None
+		self.perm = perm
+		self.help = help_
+		self.fmt = fmt
+		self.mfmt = []
+		print(fmt)
+		for i in fmt.split(' '):
+			if i.startswith('{') and i.endsswith('}'):
+				self.mfmt.append(('{',i[0:]))
+			elif i.startswith('(') and i.endsswith(')'):
+				self.mfmt.append(('(',i[0:]))
+			elif i.startswith('[') and i.endsswith(']'):
+				self.mfmt.append(('[',i[0:]))
+			else:
+				self.mfmt.append(('',i[0:]))
+		self.func = func
+	def __call__(self,player,s):
+		if not self.factory:
+			self.factory = player.factory
+		else:
+			self.func(player,*s.split(' '))
+
+def commandDecorator(fmt,perm = '',help_ = ''):
+	def wrapper(f):
+
+		m = commandFunction(f,fmt,perm,help_)
+		#print(' '.join(list(filter(lambda x: x[0] == '' ,m.mfmt)))
+		commandSystem[' '.join(
+			[i[1] for i in filter(lambda x: x[0] == '' ,m.mfmt) # list of constant arguments in m.mfmt, joined by spaces
+			])] = m
+		print(commandSystem) 
+	return wrapper
+
+
+
 class Config():
 	def __init__(self,config):
 		self.r = config # raw config
@@ -43,6 +82,11 @@ class Config():
 
 	def hasPermission(self,player,perm):
 		perm = perm.split('.')
+
+		if type(player) != str:
+			uname = player.username_
+			prot = player
+			player = uname
 		for i in self.listPermissions(player):
 			i = i.split('.')
 			matches = True
@@ -68,6 +112,7 @@ class Entity():
 
 class World():
 	def __init__(self,players=[],typ=0 ): #type = -1 :nether 0:overworld 1:end;  
+		#print(reactor.factory)
 		self.type = typ
 		self.players = []
 		self.chunks = {(0,0):{(0,100,0,1),(2,100,0,2),(4,101,1,3)}}

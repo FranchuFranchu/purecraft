@@ -1,12 +1,11 @@
 from copy import copy
+from classes import commandDecorator
 def command(player, command):
 	args = command.split(' ') # getting arguments
 	command = args[0] # getting command
 	args.remove(args[0])
 	print(command)
 	if command == 'matchesselector':
-		print('assdgf')
-		player.logger.log(4,'sss')
 		# copy everything since selectorParser is a read-only lib
 		m = copy(player.f.l.selectorParser.selectorParser.parse(
 			args[0],
@@ -44,3 +43,13 @@ def command(player, command):
 			player.send_chat('You have no permission to run that command')
 		player.send_chat('You have no permission to run that command')
 
+@commandDecorator('matchesselector','mc.cmd.selector','Lists entities matching a selector')
+def matchesSelector(player,_,selector):
+	m = copy(player.f.l.selectorParser.selectorParser.parse(
+		selector,
+		copy(copy(player.world).entities[player.eid]),
+		copy(player.world)))
+	m = [m] if type(m) != list else m
+	print(m)
+	for i in m: # list entities matching the selector
+		player.send_chat(str(i))

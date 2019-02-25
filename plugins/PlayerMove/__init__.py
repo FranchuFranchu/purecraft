@@ -2,7 +2,7 @@ JUMP_TIME = 0.5 # jump length in seconds
 
 JUMP_TIME *= -1000
 JUMP_TIME /= 50
-
+print(JUMP_TIME)
 def player_move(p,x=0,y=0,z=0,xr=None,yr=None,on_ground=None,player=None):
 	#print(p.y-y,p.on_ground)
 	if xr != None:

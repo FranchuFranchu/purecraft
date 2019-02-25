@@ -4,7 +4,7 @@ supports < 1.12
 by copying this program, you agree to sell your program to me haha no jk
 """
 import traceback as tb
-from classes import Config,World
+from classes import Config,World,commandSystem
 from twisted.internet import task
 from quarry.types.uuid import UUID
 import yaml
@@ -122,7 +122,6 @@ class PurecraftProtocol(ServerProtocol):
         self.world.post_play_add(self)
         self.plugin_event('player_joined')
         # Announce player joined
-        #print(self.f.c.hasPermission(self.display_name,'sdfsdsd'))
         self.factory.send_chat(u"\u00a7e%s has joined." % self.display_name)
         
 
@@ -179,10 +178,25 @@ class PurecraftProtocol(ServerProtocol):
         if chat_message[0] == '/':
             #self.handle_command(chat_message[1:])  # Slice to shrink slash
             try:
+                self.f.command_api(self,chat_message[1:])
                 self.plugin_event("command",chat_message[1:])
+                if chat_message.startswith('/help'):
+                    d = ["",{"text":"Command Help:","color":"gold"}]
+                    for i,j in commandSystem.items():
+                        d.append({"text":"\n"})
+                        if self.f.c.hasPermission(self.username_,j.perm):
+                            d.append({"text":'/'+j.fmt+': ',"color":"green"})
+                            d.append({"text":j.help,"color":"yellow"})
+                        else:
+                            d.append({"text":'/'+j.fmt+': ',"color":"dark_red"})
+                            d.append({"text":j.help,"color":"yellow"})
+                            d.append({"text":' (requires ',"color":"yellow","italic":True})
+                            d.append({"text":j.perm,"color":"dark_red","italic":True})
+                            d.append({"text":' permission node)',"color":"yellow","italic":True})
+                    self.send_chat_json(d)
             except Exception as e:
-                self.logger.log(4,'{} made a command, raising an error:'.format(self.username_))
-                self.logger.log(4,repr(e))
+                self.logger.log(20,'{} made a command, raising an error:'.format(self.username_))
+                self.logger.log(20,repr(e))
                 self.send_chat(tb.format_exc())
 
         else:
@@ -346,7 +360,10 @@ class PurecraftFactory(ServerFactory):
         for i in listdir(curdir+'lib'):
             tmp = __import__('lib.{}'.format(i),lib)
             exec('self.l.{} = tmp'.format(i),{'self':self,'tmp':tmp})
-
+    def command_api(self,p,s):
+        for i in commandSystem.keys():
+            if s.startswith(i):
+                commandSystem[i](p,s)
     def send_chat_json(self, message_bytes, position=0):
         for p in self.players:
             p.send_packet('chat_message', p.buff_type.pack_json(message_bytes) + self.buff_type.pack('b', position))
@@ -369,7 +386,7 @@ def main(argv):
     parser = argparse.ArgumentParser()
     parser.add_argument("-a", "--host", default="", help="address to listen on")
     parser.add_argument("-p", "--port", default=25565, type=int, help="port to listen on")
-    parser.add_argument("-d", "--debug", default=5, type=int, help="debug level, lower is verboser")
+    parser.add_argument("-d", "--debug", default=29, type=int, help="debug level, lower is verboser")
     args = parser.parse_args(argv)
 
     # Create factory

@@ -12,14 +12,15 @@ def parse(string,caller,world):
 		pass
 	"""
 	assert caller.isEntity # should be true if the caller is an Entity
+	print('s',string)
 	if string.startswith('@'):
 		print('@')
-		listOfPossible = {} # set of entity ids
+		listOfPossible = set() # set of entity ids
 		if string[1] == 's': # @s
-			return caller
+			return set([caller])
 		elif string[1] == 'a':
 			for i in world.players:
-				listOfPossible.add(i.ei)
+				listOfPossible.add(i.eid)
 		elif string[1]  == 'e':
 			for i in world.players:
 				listOfPossible.add(i.eid)
@@ -31,6 +32,7 @@ def parse(string,caller,world):
 				else:
 					k,v = i,None
 				listOfPossible = fiter(lambda x: x.d.get(k) == v,listOfPossible)
+		return listOfPossible
 	else:
 		for i in world.players:
 			if world.players.username == string:
