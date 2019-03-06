@@ -129,12 +129,12 @@ class PurecraftProtocol(ServerProtocol):
         self.ticker.add_loop(20, self.update_keep_alive)
         self.f = self.factory
         self.inv = {}
+        self.hand = 0 # int from 0 to 8 
         self.flying = False
         self.world.post_play_add(self)
         self.plugin_event('player_joined')
         # Announce player joined
-        if False:
-            self.factory.send_chat(u"\u00a7e%s has joined." % self.display_name)
+        self.factory.send_chat(u"\u00a7e%s has joined." % self.display_name)
             
 
     def packet_player_look(self,buff):
@@ -159,6 +159,9 @@ class PurecraftProtocol(ServerProtocol):
         slot = buff.unpack_slot()
         self.inv[place] = slot
         self.plugin_event('creative_inventory_action',place,slot)
+    def packet_held_item_change(self,buff):
+        self.hand = buff.unpack('h')
+        self.plugin_event('held_item_change')
     def packet_player_block_placement(self,buff):
         x,y,z = buff.unpack_position()
         face = buff.unpack_varint() 
@@ -175,8 +178,8 @@ class PurecraftProtocol(ServerProtocol):
             z = z + neg
         elif i < 6:
             x = x + neg
-        if self.inv.get(36) not in (None,{}):
-            self.f.dfa('send_block_change',(x,y,z,self.inv[36]['item']))
+        if self.inv.get(36+self.hand) not in (None,{}):
+            self.dfaw('send_block_change',x,y,z,self.inv[36+self.hand]['item'])
 
     def packet_player_position_and_look(self, buff): # not working
         x, y, z,xr,yr, on_ground = buff.unpack('dddffb')  # X Y Z - coordinates, on ground - boolean
@@ -221,7 +224,7 @@ class PurecraftProtocol(ServerProtocol):
 
     def send_empty_chunk(self, x, z):  # args: chunk position ints (x, z)
         #print(self.protocol_version)
-        if self.protocol_version >= 300:
+        if self.protocol_version >= 400: # this is not working for  +1.13 :(
             self.send_packet("chunk_data",
                   self.buff_type.pack('ii?' , x, z, True)
                 + self.buff_type.pack_varint(2**16-1)
