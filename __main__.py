@@ -4,9 +4,12 @@ supports < 1.12
 by copying this program, you agree to sell your program to me haha no jk
 """
 import traceback as tb
-from classes import Config,World,commandSystem
+from classes import Config,World,commandSystem,commandGraph
 from twisted.internet import task
 from quarry.types.uuid import UUID
+from quarry.types.nbt import TagRoot
+from quarry.types.chunk import BlockArray,LightArray
+from quarry.types.block import LookupBlockMap
 import yaml
 from twisted.internet import reactor
 from quarry.net.server import ServerFactory, ServerProtocol
@@ -19,7 +22,12 @@ with open(curdir+'config.yaml') as f:
 import plugins as pack
 from os import listdir
 
-
+def bitmask_full(amount):
+    n = 0
+    for i in range(amount):
+        n+=i**2
+    print(n)
+    return n
 class Obj:
     def __init__(self):
         pass
@@ -64,19 +72,13 @@ class PurecraftProtocol(ServerProtocol):
         self.send_packet("status_response", self.buff_type.pack_json(d))
 
     def player_joined(self):
+        self.eid = 0
         # Call super. This switches us to "play" mode, marks the player as
-        #   in-game, and does some logging.
+        # in-game, and does some logging.
         ServerProtocol.player_joined(self)
-        self.isProtocol = True
-        self.logger.setLevel(self.factory.level)
-        self.username_ = self.display_name
-        self.bt = self.buff_type
-        self.pk = self.buff_type.pack
-        self.send_chat('hi')
-        self.xr = self.yr = 0   
-        self.on_ground = False
-        self.factory.w[0].add_players(self)
-        # Send "Join Game" packet
+    
+        # Send "Join Game" packets
+        # Send "Player Position and Look" packet
         self.send_packet("join_game",
             self.buff_type.pack("iBiBB",
                 self.eid,                              # entity id
@@ -86,9 +88,7 @@ class PurecraftProtocol(ServerProtocol):
                 0),                             # unused
             self.buff_type.pack_string("flat"), # level type
             self.buff_type.pack("?", False))    # reduced debug info
-
-        # Send "Player Position and Look" packet
-        self.position = (0,255,0)
+        
         self.send_packet("player_position_and_look",
             self.buff_type.pack("dddff?",
                 0,                         # x
@@ -98,22 +98,33 @@ class PurecraftProtocol(ServerProtocol):
                 90,                         # pitch
                 0b00000),                  # flags
             self.buff_type.pack_varint(0)) # teleport id
-
+        self.isProtocol = True
+        self.logger.setLevel(self.factory.level)
+        self.username_ = self.display_name
+        self.bt = self.buff_type
+        self.pk = self.buff_type.pack
+        self.send_chat('hi')
+        self.xr = self.yr = 0   
+        self.on_ground = False
+            # set world
+        self.factory.w[0].add_players(self)
+        self.position = (0,255,0)
         self.plugin_event('pre_player_joined') # tell plugins that the player joined
         # start ticking 
         loop = task.LoopingCall(self.plugin_event,'tick')
         loopDeferred = loop.start(0.05)
-        # set world
         # send 7x7 chunks  around the player
-        for i in range(-3,3):
-            for j in range(-3,3):
-                self.send_empty_chunk(i,j)
+        #for i in range(-3,3):
+        #    for j in range(-3,3):
+        #        self.send_empty_chunk(i,j)
 
+        
+      
         # make a small parkour
         self.x,self.y,self.z = (0,101,0)
         #self.send_packet('entity',self.bt.pack_varint(123))
         #self.send_mob(123,40,90,(0,101,0),0,0,0) # spawn a pig for testing purposes
-        print("Player %s has the following permissions: "%self.display_name,*self.factory.c.listPermissions(self.display_name))
+        #print("Player %s has the following permissions: "%self.display_name,*self.factory.c.listPermissions(self.display_name))
         # Start sending "Keep Alive" packets
         self.ticker.add_loop(20, self.update_keep_alive)
         self.f = self.factory
@@ -122,8 +133,9 @@ class PurecraftProtocol(ServerProtocol):
         self.world.post_play_add(self)
         self.plugin_event('player_joined')
         # Announce player joined
-        self.factory.send_chat(u"\u00a7e%s has joined." % self.display_name)
-        
+        if False:
+            self.factory.send_chat(u"\u00a7e%s has joined." % self.display_name)
+            
 
     def packet_player_look(self,buff):
         self.xr,self.yr,on_ground = buff.unpack('ffb') 
@@ -185,14 +197,13 @@ class PurecraftProtocol(ServerProtocol):
                     for i,j in commandSystem.items():
                         d.append({"text":"\n"})
                         if self.f.c.hasPermission(self.username_,j.perm):
-                            d.append({"text":'/'+j.fmt+': ',"color":"green"})
-                            d.append({"text":j.help,"color":"yellow"})
+                            d.append({"text":'/'+j.fmt,"color":"green","hoverEvent":{"action":"show_text","value":[{"text":j.help,"color":"yellow"}]}})
                         else:
-                            d.append({"text":'/'+j.fmt+': ',"color":"dark_red"})
-                            d.append({"text":j.help,"color":"yellow"})
+                            d.append({"text":'/'+j.fmt+'',"color":"dark_red","hoverEvent":{"action":"show_text","value":[{"text":j.help,"color":"yellow"}]}})
                             d.append({"text":' (requires ',"color":"yellow","italic":True})
                             d.append({"text":j.perm,"color":"dark_red","italic":True})
                             d.append({"text":' permission node)',"color":"yellow","italic":True})
+                    d.extend([{"text":"\nTIP:","color":"gold"},{"text":" Hover commands for help!","color":"light_blue"}])
                     self.send_chat_json(d)
             except Exception as e:
                 self.logger.log(20,'{} made a command, raising an error:'.format(self.username_))
@@ -209,7 +220,21 @@ class PurecraftProtocol(ServerProtocol):
     '''
 
     def send_empty_chunk(self, x, z):  # args: chunk position ints (x, z)
-        self.send_packet("chunk_data", self.buff_type.pack('ii?H', x, z, True, 0) + self.buff_type.pack_varint(0))
+        #print(self.protocol_version)
+        if self.protocol_version >= 300:
+            self.send_packet("chunk_data",
+                  self.buff_type.pack('ii?' , x, z, True)
+                + self.buff_type.pack_varint(2**16-1)
+                + self.buff_type.pack_varint(0)
+                + self.buff_type.pack_varint(0)
+                #+ self.buff_type.pack_chunk_section(BlockArray.empty(LookupBlockMap),LightArray.empty())
+                
+                )
+
+        else:
+            self.send_packet("chunk_data",
+                  self.buff_type.pack('ii?H', x, z, True, 0)
+                + self.buff_type.pack_varint(0))
 
     def send_change_game_state(self, reason, state):  # http://wiki.vg/Protocol#Change_Game_State
         self.send_packet("change_game_state", self.buff_type.pack('Bf', reason, state))
@@ -305,19 +330,20 @@ class PurecraftProtocol(ServerProtocol):
         else:
             self.send_packet('title', self.buff_type.pack_varint(position) + self.buff_type.pack_chat(message))
     def send_mob(self,eid,type_,pos=(0,0,0),yaw=0,pitch=0,headpitch=0,uuid=UUID.random()):
-        self.send_packet('spawn_mob', 
-              self.bt.pack_varint(eid)
-            + self.bt.pack_uuid(uuid)
-            + self.bt.pack_varint(type_)
-            + self.bt.pack('dddfffhhh',*pos,yaw,pitch,headpitch,0,0,0)
-            + self.bt.pack_entity_metadata({}))
+        if self.protocol_version < 400:
+            self.send_packet('spawn_mob', 
+                  self.bt.pack_varint(eid)
+                + self.bt.pack_uuid(uuid)
+                + self.bt.pack_varint(type_)
+                + self.bt.pack('dddfffhhh',*pos,yaw,pitch,headpitch,0,0,0)
+                + self.bt.pack_entity_metadata({}))
     def send_keep_alive(self, keepalive_id):  # args: (varint data[int])
         self.send_packet("keep_alive", self.buff_type.pack_varint(keepalive_id))
         
     def send_plist_head_foot(self, header, footer):  # args: str (header, footer)
         self.send_packet("player_list_header_footer",
-                         self.buff_type.pack_chat(header) +
-                         self.buff_type.pack_chat(footer))
+                          self.buff_type.pack_chat(header)
+                        + self.buff_type.pack_chat(footer))
 
     def send_block_change(self, x, y, z, block_id):  # args: int (x, y, z, block id)
         print(block_id<<4)
@@ -362,9 +388,13 @@ class PurecraftFactory(ServerFactory):
             tmp = __import__('lib.{}'.format(i),lib)
             exec('self.l.{} = tmp'.format(i),{'self':self,'tmp':tmp})
     def command_api(self,p,s):
-        for i in commandSystem.keys():
-            if s.startswith(i):
-                commandSystem[i](p,s)
+        node = commandGraph
+        args = [p]
+        for i,j in enumerate(s.split(' ')):
+            node = list(filter(lambda x: (x['type'] == 1 and x['name'] == j) or x['type'] == 2,node['children']))[0]
+            if node['type'] == 2:
+                args.append(j)
+        node['f'](*args)
     def send_chat_json(self, message_bytes, position=0):
         for p in self.players:
             p.send_packet('chat_message', p.buff_type.pack_json(message_bytes) + self.buff_type.pack('b', position))

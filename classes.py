@@ -7,6 +7,22 @@ def getKey(d,k): # get value from a dictionary, if KeyError then return the key
 	except KeyError:
 		return k
 commandSystem = {}
+def newNode(type_,f=None,name=None,exec_=True):
+	node = {}
+	node['type'] = type_
+	node['name'] = name
+	node['children'] = []
+	node['executable'] = exec_
+	node['suggestion'] = True
+	node['redirect'] = False
+	node['parser'] = 'brigadier:string'
+	node['f'] = f
+	node['properties'] = {'behaviour':1}
+	return node
+commandGraph = newNode(0)
+def addChild(node,child):
+	node['children'].append(child)
+	return node
 class commandFunction:
 	def __init__(self,func,fmt,perm='',help_=''):
 		self.factory = None
@@ -14,8 +30,8 @@ class commandFunction:
 		self.help = help_
 		self.fmt = fmt
 		self.mfmt = []
-		print(fmt)
-		print(re.split(r"\s+(?=[^()]*(?:(\(|\<|\[|\{)|$))", fmt))
+		#print(fmt)
+		#print(re.split(r"\s+(?=[^()]*(?:(\(|\<|\[|\{)|$))", fmt))
 		for i in re.split(r"\s+(?=[^()]*(?:(\(|\<|\[|\{)|$))", fmt):
 			if i == None:
 				continue
@@ -52,12 +68,28 @@ class commandFunction:
 
 def commandDecorator(fmt,perm = '',help_ = ''):
 	def wrapper(f):
-
+		# make it a command
 		m = commandFunction(f,fmt,perm,help_)
 		#print(' '.join(list(filter(lambda x: x[0] == '' ,m.mfmt)))
-		commandSystem[' '.join(
-			[i[1] for i in filter(lambda x: x[0] == '' ,m.mfmt) # list of constant arguments in m.mfmt, joined by spaces
-			])] = m
+		l = [i[1] for i in filter(lambda x: x[0] == '' ,m.mfmt) # list of constant arguments in m.mfmt, joined by spaces
+			]
+		pl = l.copy()
+		node = commandGraph
+		for i in l:
+			if newNode(1,name=i,f=f) in node['children'] != None:
+				node = node['children'][node['children'].index(newNode(1,name=i,f=f))]
+			else:
+				node['children'].append(newNode(1,name=i,f=f))
+				node = node['children'][node['children'].index(newNode(1,name=i,f=f))]
+		l = [i[1][1:-1] for i in filter(lambda x: x[0] == '<' ,m.mfmt) # list of constant arguments in m.mfmt, joined by spaces
+			]
+		for i in l:
+			if newNode(2,name=i,f=f) in node['children'] != None:
+				node = node['children'][node['children'].index(newNode(2,name=i,f=f))]
+			else:
+				node['children'].append(newNode(2,name=i,f=f))
+				node = node['children'][node['children'].index(newNode(2,name=i,f=f))]
+		commandSystem[' '.join(pl)] = m
 		print(commandSystem) 
 	return wrapper
 
@@ -66,7 +98,7 @@ def commandDecorator(fmt,perm = '',help_ = ''):
 class Config():
 	def __init__(self,config):
 		self.r = config # raw config
-		print('Config.yaml: ',self.r)
+		#print('Config.yaml: ',self.r)
 		if not self.r.get('groups'):
 			self.r['groups'] = {}
 	def isIn(self,group,player):
@@ -161,8 +193,8 @@ class World():
 			chunkx = self.spawn[0]//16
 			chunkz = self.spawn[2]//16
 			player.seeableChunks = []
-			for i in range(-3,3):
-				for j in range(-3,3):
+			for i in range(-0,1):
+				for j in range(-0,1):
 					player.seeableChunks.append((i+chunkx,j+chunkz))
 					player.send_empty_chunk(i+chunkx,j+chunkz)
 					try:
